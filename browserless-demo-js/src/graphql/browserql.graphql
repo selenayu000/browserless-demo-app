@@ -1,0 +1,8 @@
+query BrowserQuery($url: String!, $sessionOptions: SessionOptionsInput!) {
+  session(options: $sessionOptions) {
+    goto(url: $url) {
+      content
+      status
+    }
+  }
+}
