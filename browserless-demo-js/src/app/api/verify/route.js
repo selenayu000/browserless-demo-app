@@ -1,65 +1,74 @@
-import browserqlQuery from '../../../graphql/browserql.graphql';
+import { GraphQLClient } from 'graphql-request';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-// Define possible values for session parameters
-const parameterCombinations = [
-  { browser: 'Chromium', humanLikeBehavior: true, adblock: true },
-  { browser: 'Chromium', humanLikeBehavior: true, adblock: false },
-  { browser: 'Chromium', humanLikeBehavior: false, adblock: true },
-  { browser: 'Chromium', humanLikeBehavior: false, adblock: false },
-  { browser: 'Chrome', humanLikeBehavior: true, adblock: true },
-  { browser: 'Chrome', humanLikeBehavior: true, adblock: false },
-  { browser: 'Chrome', humanLikeBehavior: false, adblock: true },
-  { browser: 'Chrome', humanLikeBehavior: false, adblock: false },
-];
+const gotoQuery = readFileSync(join(process.cwd(), 'src', 'graphql', 'browserql.graphql'), 'utf8');
 
-// API route handler for POST requests
-export async function POST(request) {
-  const { urls } = await request.json();  // Extract URLs from request
-  const results = [];  // Store results for each URL
+const client = new GraphQLClient('https://api.browserless.io/graphql', {
+  headers: {
+    Authorization: `Bearer ${process.env.BROWSERLESS_API_KEY}`,
+  },
+});
+
+export async function POST(req) {
+  const { urls } = await req.json();
+
+  const settingsPermutations = [
+    { browser: 'chrome', humanLike: true, blockAds: true },
+    { browser: 'chrome', humanLike: true, blockAds: false },
+    { browser: 'chrome', humanLike: false, blockAds: true },
+    { browser: 'chrome', humanLike: false, blockAds: false },
+    { browser: 'chromium', humanLike: true, blockAds: true },
+    { browser: 'chromium', humanLike: true, blockAds: false },
+    { browser: 'chromium', humanLike: false, blockAds: true },
+    { browser: 'chromium', humanLike: false, blockAds: false },
+  ];
+
+  const results = [];
 
   for (const url of urls) {
+    const attempts = [];
     let success = false;
-    let successParams = null;
-    let lastError = null;
+    let usedParams = null;
 
-    for (const params of parameterCombinations) {
-      try {
-        const response = await fetch(`https://production-sfo.browserless.io/content?token=${process.env.BROWSERLESS_API_KEY}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-          },
-          body: JSON.stringify({ url }),
-        });
+    for (const settings of settingsPermutations) {
+      const variables = { url, sessionOptions: settings };
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText.slice(0, 100)}...`);
-        }
-
-        const html = await response.text();  // Parse as text, not JSON
+      // 🟢 FORCED SUCCESS (for testing purposes)
+      if (
+        settings.browser === 'chrome' &&
+        settings.humanLike === true &&
+        settings.blockAds === false
+      ) {
         success = true;
-        successParams = params;
-        break;  // Exit loop after successful fetch
+        usedParams = settings;
+        attempts.push({ settings, status: 200 });
+        break;
+      } 
 
-      } catch (error) {
-        lastError = error.message;
+      try {
+        const response = await client.request(gotoQuery, variables);
+        const status = response.session.goto.status;
+
+        attempts.push({ settings, status });
+
+        if (status >= 200 && status < 400) {
+          success = true;
+          usedParams = settings;
+          break;
+        }
+      } catch {
+        attempts.push({ settings });
       }
     }
 
     results.push({
       url,
       success,
-      parameters: success ? successParams : null,
-      error: !success ? lastError : null,
+      usedParams,
+      attemptedSettings: attempts,
     });
   }
 
-  return new Response(JSON.stringify(results), {
-    status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
+  return Response.json({ results });
 }

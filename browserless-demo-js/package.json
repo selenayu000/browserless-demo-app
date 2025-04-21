@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "cheerio": "^1.0.0",
     "graphql": "^16.10.0",
+    "graphql-request": "^7.1.2",
     "graphql-tag": "^2.12.6",
     "next": "15.3.0",
     "react": "^19.0.0",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@graphql-codegen/cli": "^5.0.5",
     "eslint": "^9",
     "eslint-config-next": "15.3.0"
   }

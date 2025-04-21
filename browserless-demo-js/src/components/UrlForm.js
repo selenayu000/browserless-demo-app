@@ -1,34 +1,32 @@
-'use client';  // Marks this as a client component
-import { useState } from 'react';  // Imports state hook
+'use client';  
+import { useState } from 'react';  
 
 export default function UrlForm({ onSubmit }) {
-  const [urlInput, setUrlInput] = useState('');  // State for the current URL input
-  const [urls, setUrls] = useState([]);  // State for the list of added URLs
+  const [urlInput, setUrlInput] = useState(''); 
+  const [urls, setUrls] = useState([]);  
 
   const handleAddUrl = () => {
-    // Basic URL validation using the URL constructor
     try {
-      new URL(urlInput);  // Will throw an error if URL is invalid
-      if (!urls.includes(urlInput)) {  // Check for duplicates
-        setUrls([...urls, urlInput]);  // Add new URL to the list
+      new URL(urlInput);  
+      if (!urls.includes(urlInput)) {  
+        setUrls([...urls, urlInput]); 
       }
-      setUrlInput('');  // Clear the input field
+      setUrlInput('');  
     } catch (err) {
-      alert('Please enter a valid URL');  // Show error for invalid URL
+      alert('Please enter a valid URL'); 
     }
   };
 
   const handleRemoveUrl = (urlToRemove) => {
-    // Filter out the URL to be removed
     setUrls(urls.filter(url => url !== urlToRemove));
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();  // Prevent default form submission
-    if (urls.length > 0) {  // Check if we have URLs to verify
-      onSubmit(urls);  // Call the parent's onSubmit function with URLs
+    e.preventDefault(); 
+    if (urls.length > 0) {  
+      onSubmit(urls); 
     } else {
-      alert('Please add at least one URL to verify');  // Show error if no URLs
+      alert('Please add at least one URL to verify'); 
     }
   };
   return (
@@ -80,5 +78,3 @@ export default function UrlForm({ onSubmit }) {
     </div>
   );
 }
-
-  // The rest of the code renders the form UI
