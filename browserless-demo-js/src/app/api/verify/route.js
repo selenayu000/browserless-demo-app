@@ -1,14 +1,10 @@
-import { GraphQLClient } from 'graphql-request';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
-const gotoQuery = readFileSync(join(process.cwd(), 'src', 'graphql', 'browserql.graphql'), 'utf8');
-
-const client = new GraphQLClient('https://api.browserless.io/graphql', {
-  headers: {
-    Authorization: `Bearer ${process.env.BROWSERLESS_API_KEY}`,
-  },
-});
+const gotoQuery = readFileSync(
+  join(process.cwd(), 'src', 'graphql', 'browserql.graphql'),
+  'utf8'
+);
 
 export async function POST(req) {
   const { urls } = await req.json();
@@ -32,33 +28,54 @@ export async function POST(req) {
     let usedParams = null;
 
     for (const settings of settingsPermutations) {
-      const variables = { url, sessionOptions: settings };
-
-      // 🟢 FORCED SUCCESS (for testing purposes)
-      if (
-        settings.browser === 'chrome' &&
-        settings.humanLike === true &&
-        settings.blockAds === false
-      ) {
-        success = true;
-        usedParams = settings;
-        attempts.push({ settings, status: 200 });
-        break;
-      } 
-
       try {
-        const response = await client.request(gotoQuery, variables);
-        const status = response.session.goto.status;
+        const response = await fetch(
+          `https://production-sfo.browserless.io/chrome/bql?token=${process.env.BROWSERLESS_API_KEY}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+            },
+            body: JSON.stringify({
+              query: gotoQuery,
+              variables: {url},
+            }),
+          }
+        );
 
-        attempts.push({ settings, status });
+        const text = await response.text();
+        let data;
 
-        if (status >= 200 && status < 400) {
-          success = true;
-          usedParams = settings;
-          break;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error(`❌ Non-JSON response with ${JSON.stringify(settings)}:`);
+          console.error(text.slice(0, 300));
+          attempts.push({ settings, error: 'Non-JSON response', raw: text.slice(0, 300) });
+          continue;
         }
-      } catch {
-        attempts.push({ settings });
+        if (data.errors) {
+          console.error(`❌ GraphQL error with ${JSON.stringify(settings)}:`);
+          console.error(JSON.stringify(data.errors, null, 2));
+          attempts.push({ settings, error: 'GraphQL Error', details: data.errors });
+          continue;
+        }
+
+        const status = data?.data?.goto?.status;
+
+        if (status && status >= 200 && status < 400) {
+          success = true;
+          usedParams = settings; 
+          attempts.push({ settings, status });
+          break; 
+        } else {
+          attempts.push({ settings, status });
+        }
+        
+      } catch (err) {
+        console.error(`❌ Fetch error with ${JSON.stringify(settings)}:`, err.message);
+        attempts.push({ settings, error: err.message });
       }
     }
 

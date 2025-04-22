@@ -25,7 +25,6 @@ export default function ResultsDisplay({ results }) {
                 {result.attemptedSettings.map((attempt, j) => (
                   <li key={j} className="flex items-center gap-2">
                     <code>{JSON.stringify(attempt.settings)}</code>
-                    {attempt.success ? '✅' : '❌'}
                   </li>
                 ))}
               </ul>
